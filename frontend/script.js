@@ -57,26 +57,29 @@ function renderGraph(data) {
     const nodes = [];
     const edges = [];
 
-    data.fraud_rings.forEach(ring => {
+    const suspiciousSet = new Set(
+        data.suspicious_accounts.map(acc => acc.account_id)
+    );
 
-        ring.member_accounts.forEach(acc => {
-            nodes.push({
-                id: acc,
-                label: acc,
-                color: "#ef4444",
-                size: 30,
-                font: { color: "white" }
-            });
+    // Add ALL nodes
+    data.graph.nodes.forEach(id => {
+        nodes.push({
+            id: id,
+            label: id,
+            color: suspiciousSet.has(id) ? "#ef4444" : "#38bdf8",
+            size: suspiciousSet.has(id) ? 30 : 15,
+            font: { color: "white" }
         });
+    });
 
-        for (let i = 0; i < ring.member_accounts.length; i++) {
-            edges.push({
-                from: ring.member_accounts[i],
-                to: ring.member_accounts[(i + 1) % ring.member_accounts.length],
-                arrows: "to",
-                color: "#38bdf8"
-            });
-        }
+    // Add ALL edges
+    data.graph.edges.forEach(edge => {
+        edges.push({
+            from: edge.from,
+            to: edge.to,
+            arrows: "to",
+            color: "#94a3b8"
+        });
     });
 
     const container = document.getElementById("network");
