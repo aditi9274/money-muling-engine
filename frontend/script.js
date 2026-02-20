@@ -6,7 +6,7 @@ async function uploadFile() {
     const file = fileInput.files[0];
 
     if (!file) {
-        alert("Select a file");
+        alert("Please select a file.");
         return;
     }
 
@@ -23,13 +23,49 @@ async function uploadFile() {
 
     const data = await response.json();
 
-    console.log("DATA RECEIVED:", data);
-
     latestResult = data;
 
-    renderTable(data);
     renderGraph(data);
+    renderTable(data);
     enableDownload();
+}
+
+function renderGraph(data) {
+
+    const nodes = [];
+    const edges = [];
+
+    const suspiciousSet = new Set(
+        data.suspicious_accounts.map(acc => acc.account_id)
+    );
+
+    data.graph.nodes.forEach(id => {
+        nodes.push({
+            id: id,
+            label: id,
+            color: suspiciousSet.has(id) ? "#ef4444" : "#38bdf8",
+            size: suspiciousSet.has(id) ? 28 : 14,
+            font: { color: "white" }
+        });
+    });
+
+    data.graph.edges.forEach(edge => {
+        edges.push({
+            from: edge.from,
+            to: edge.to,
+            arrows: "to",
+            color: "#94a3b8"
+        });
+    });
+
+    new vis.Network(
+        document.getElementById("network"),
+        {
+            nodes: new vis.DataSet(nodes),
+            edges: new vis.DataSet(edges)
+        },
+        { physics: { enabled: true } }
+    );
 }
 
 function renderTable(data) {
@@ -49,48 +85,6 @@ function renderTable(data) {
         `;
 
         tableBody.appendChild(row);
-    });
-}
-
-function renderGraph(data) {
-
-    const nodes = [];
-    const edges = [];
-
-    const suspiciousSet = new Set(
-        data.suspicious_accounts.map(acc => acc.account_id)
-    );
-
-    // Add ALL nodes
-    data.graph.nodes.forEach(id => {
-        nodes.push({
-            id: id,
-            label: id,
-            color: suspiciousSet.has(id) ? "#ef4444" : "#38bdf8",
-            size: suspiciousSet.has(id) ? 30 : 15,
-            font: { color: "white" }
-        });
-    });
-
-    // Add ALL edges
-    data.graph.edges.forEach(edge => {
-        edges.push({
-            from: edge.from,
-            to: edge.to,
-            arrows: "to",
-            color: "#94a3b8"
-        });
-    });
-
-    const container = document.getElementById("network");
-
-    const graphData = {
-        nodes: new vis.DataSet(nodes),
-        edges: new vis.DataSet(edges)
-    };
-
-    new vis.Network(container, graphData, {
-        physics: { enabled: true }
     });
 }
 

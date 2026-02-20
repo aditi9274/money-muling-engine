@@ -1,13 +1,12 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+import networkx as nx
 import time
-from utils import build_graph
-from detectors.cycle import detect_cycles
-from detectors.smurfing import detect_smurfing
-from detectors.shell import detect_shells
 
 app = FastAPI()
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,36 +14,79 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-@app.post("/upload/")
+
+
+def build_graph(df):
+    G = nx.DiGraph()
+    for _, row in df.iterrows():
+        G.add_edge(
+            row["sender_id"],
+            row["receiver_id"],
+            amount=row["amount"],
+            timestamp=row["timestamp"]
+        )
+    return G
+
+
+def detect_cycles(G):
+    cycles = []
+    for cycle in nx.simple_cycles(G):
+        if 3 <= len(cycle) <= 5:
+            cycles.append(cycle)
+    return cycles
+
+
+def detect_smurfing(G):
+    suspicious = []
+    for node in G.nodes():
+        if len(list(G.predecessors(node))) >= 10:
+            suspicious.append(("fan_in", node))
+        if len(list(G.successors(node))) >= 10:
+            suspicious.append(("fan_out", node))
+    return suspicious
+
+
+def detect_shells(G):
+    shells = []
+    for node in G.nodes():
+        if G.degree(node) <= 3:
+            for neighbor in G.successors(node):
+                if G.degree(neighbor) <= 3:
+                    shells.append((node, neighbor))
+    return shells
+
+
+@app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
+
     start_time = time.time()
+
     df = pd.read_csv(file.file)
     df = df.dropna()
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    G = build_graph(df)
-    cycles= detect_cycles(G)
-    smurfing= detect_smurfing(G)
-    shells= detect_shells(G)
-    result = generate_output(G, cycles, smurfing, shells, start_time)
-    return result
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-def generate_output(G, cycles, smurfing, shells, start_time):
+    G = build_graph(df)
+
+    cycles = detect_cycles(G)
+    smurfing = detect_smurfing(G)
+    shells = detect_shells(G)
+
     suspicious_accounts = {}
     fraud_rings = []
     ring_counter = 1
 
-    # ---- 1. Handle Cycles ----
+    # Cycles
     for cycle in cycles:
         ring_id = f"RING_{ring_counter:03d}"
         ring_counter += 1
+
         for acc in cycle:
-            if acc not in suspicious_accounts:
-                suspicious_accounts[acc] = {
-                    "account_id": acc,
-                    "suspicion_score": 0,
-                    "detected_patterns": [],
-                    "ring_id": ring_id
-                }
+            suspicious_accounts.setdefault(acc, {
+                "account_id": acc,
+                "suspicion_score": 0,
+                "detected_patterns": [],
+                "ring_id": ring_id
+            })
 
             suspicious_accounts[acc]["suspicion_score"] += 40
             suspicious_accounts[acc]["detected_patterns"].append("cycle")
@@ -56,41 +98,36 @@ def generate_output(G, cycles, smurfing, shells, start_time):
             "risk_score": 90.0
         })
 
-    # ---- 2. Smurfing ----
+    # Smurfing
     for pattern, acc in smurfing:
-        if acc not in suspicious_accounts:
-            suspicious_accounts[acc] = {
-                "account_id": acc,
-                "suspicion_score": 0,
-                "detected_patterns": [],
-                "ring_id": "RING_000"
-            }
+        suspicious_accounts.setdefault(acc, {
+            "account_id": acc,
+            "suspicion_score": 0,
+            "detected_patterns": [],
+            "ring_id": "RING_000"
+        })
 
         suspicious_accounts[acc]["suspicion_score"] += 30
         suspicious_accounts[acc]["detected_patterns"].append(pattern)
 
-    # ---- 3. Shell ----
+    # Shell
     for acc1, acc2 in shells:
         for acc in [acc1, acc2]:
-            if acc not in suspicious_accounts:
-                suspicious_accounts[acc] = {
-                    "account_id": acc,
-                    "suspicion_score": 0,
-                    "detected_patterns": [],
-                    "ring_id": "RING_000"
-                }
+            suspicious_accounts.setdefault(acc, {
+                "account_id": acc,
+                "suspicion_score": 0,
+                "detected_patterns": [],
+                "ring_id": "RING_000"
+            })
 
             suspicious_accounts[acc]["suspicion_score"] += 20
             suspicious_accounts[acc]["detected_patterns"].append("shell")
 
-    # ---- Convert to list ----
     suspicious_list = list(suspicious_accounts.values())
 
-    # Cap score at 100
     for acc in suspicious_list:
         acc["suspicion_score"] = float(min(acc["suspicion_score"], 100))
 
-    # Sort descending
     suspicious_list.sort(key=lambda x: x["suspicion_score"], reverse=True)
 
     processing_time = round(time.time() - start_time, 2)
@@ -106,14 +143,6 @@ def generate_output(G, cycles, smurfing, shells, start_time):
         },
         "graph": {
             "nodes": list(G.nodes()),
-            "edges": [
-                {"from": u, "to": v}
-                for u, v in G.edges()
-            ]
+            "edges": [{"from": u, "to": v} for u, v in G.edges()]
         }
     }
-
-
-@app.get("/")
-def root():
-    return {"message": "Money Muling Detection API is running"}
