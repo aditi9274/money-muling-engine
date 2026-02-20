@@ -5,36 +5,23 @@ async function uploadFile() {
     const fileInput = document.getElementById("csvFile");
     const file = fileInput.files[0];
 
-    if (!file) {
-        alert("Please select a CSV file.");
-        return;
-    }
-
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-        const response = await fetch("https://money-muling-engine-pq67.onrender.com/upload", {
-
+    const response = await fetch(
+        "https://money-muling-engine-pq67.onrender.com/upload",
+        {
             method: "POST",
             body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error("Server error");
         }
+    );
 
-        const data = await response.json();
-        latestResult = data;
-
-        renderGraph(data);
-        renderTable(data);
-        enableDownload();
-
-    } catch (error) {
-        alert("Backend connection failed.");
-        console.error(error);
+    if (!response.ok) {
+        throw new Error("Server error");
     }
+
+    const data = await response.json();
+    console.log(data);
 }
 
 function renderGraph(data) {
