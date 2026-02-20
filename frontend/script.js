@@ -14,7 +14,8 @@ async function uploadFile() {
     formData.append("file", file);
 
     try {
-        const response = await fetch("http://127.0.0.1:8000/upload", {
+        const response = await fetch("https://money-muling-engine-pq67.onrender.com/", {
+
             method: "POST",
             body: formData
         });
