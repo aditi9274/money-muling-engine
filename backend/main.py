@@ -15,7 +15,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-@app.post("/upload")
+@app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
     start_time = time.time()
     df = pd.read_csv(file.file)
