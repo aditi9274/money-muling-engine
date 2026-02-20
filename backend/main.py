@@ -103,7 +103,16 @@ def generate_output(G, cycles, smurfing, shells, start_time):
             "suspicious_accounts_flagged": len(suspicious_list),
             "fraud_rings_detected": len(fraud_rings),
             "processing_time_seconds": processing_time
+        },
+        "graph": {
+            "nodes": list(G.nodes()),
+            "edges": [
+                {"from": u, "to": v}
+                for u, v in G.edges()
+            ]
         }
+    }
+
     }
 @app.get("/")
 def root():
