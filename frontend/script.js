@@ -5,6 +5,11 @@ async function uploadFile() {
     const fileInput = document.getElementById("csvFile");
     const file = fileInput.files[0];
 
+    if (!file) {
+        alert("Select a file");
+        return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
 
@@ -16,66 +21,15 @@ async function uploadFile() {
         }
     );
 
-    if (!response.ok) {
-        throw new Error("Server error");
-    }
-
     const data = await response.json();
-    console.log(data);
-}
 
-function renderGraph(data) {
+    console.log("DATA RECEIVED:", data);
 
-    const nodes = [];
-    const edges = [];
+    latestResult = data;
 
-    const suspiciousSet = new Set(
-        data.suspicious_accounts.map(acc => acc.account_id)
-    );
-
-    // Create nodes
-    suspiciousSet.forEach(id => {
-        nodes.push({
-            id: id,
-            label: id,
-            color: "#ef4444",
-            size: 30,
-            font: { color: "white" }
-        });
-    });
-
-    // Add ring edges
-    data.fraud_rings.forEach(ring => {
-        const members = ring.member_accounts;
-
-        for (let i = 0; i < members.length; i++) {
-            edges.push({
-                from: members[i],
-                to: members[(i + 1) % members.length],
-                arrows: "to",
-                color: "#38bdf8"
-            });
-        }
-    });
-
-    const container = document.getElementById("network");
-
-    const graphData = {
-        nodes: new vis.DataSet(nodes),
-        edges: new vis.DataSet(edges)
-    };
-
-    const options = {
-        physics: {
-            enabled: true,
-            stabilization: false
-        },
-        nodes: {
-            shape: "dot"
-        }
-    };
-
-    new vis.Network(container, graphData, options);
+    renderTable(data);
+    renderGraph(data);
+    enableDownload();
 }
 
 function renderTable(data) {
@@ -95,6 +49,45 @@ function renderTable(data) {
         `;
 
         tableBody.appendChild(row);
+    });
+}
+
+function renderGraph(data) {
+
+    const nodes = [];
+    const edges = [];
+
+    data.fraud_rings.forEach(ring => {
+
+        ring.member_accounts.forEach(acc => {
+            nodes.push({
+                id: acc,
+                label: acc,
+                color: "#ef4444",
+                size: 30,
+                font: { color: "white" }
+            });
+        });
+
+        for (let i = 0; i < ring.member_accounts.length; i++) {
+            edges.push({
+                from: ring.member_accounts[i],
+                to: ring.member_accounts[(i + 1) % ring.member_accounts.length],
+                arrows: "to",
+                color: "#38bdf8"
+            });
+        }
+    });
+
+    const container = document.getElementById("network");
+
+    const graphData = {
+        nodes: new vis.DataSet(nodes),
+        edges: new vis.DataSet(edges)
+    };
+
+    new vis.Network(container, graphData, {
+        physics: { enabled: true }
     });
 }
 
