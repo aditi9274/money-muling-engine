@@ -113,7 +113,7 @@ def generate_output(G, cycles, smurfing, shells, start_time):
         }
     }
 
-    }
+
 @app.get("/")
 def root():
     return {"message": "Money Muling Detection API is running"}
