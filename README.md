@@ -12,7 +12,7 @@ This system uses directed graph modeling and pattern detection algorithms to exp
 
 🌐 Live Demo
 
-(Add your deployed URL here once hosted)
+[RedFlagNet](https://money-muling-frontend.onrender.com/)
 
 🛠 Tech Stack
 
